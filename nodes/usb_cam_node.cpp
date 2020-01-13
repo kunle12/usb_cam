@@ -39,7 +39,6 @@
 #include <image_transport/image_transport.h>
 #include <camera_info_manager/camera_info_manager.h>
 #include <sstream>
-#include <std_srvs/Empty.h>
 
 namespace usb_cam {
 
@@ -64,30 +63,25 @@ public:
 
   UsbCam cam_;
 
-  ros::ServiceServer service_start_, service_stop_;
-
-
-
-  bool service_start_cap(std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res )
+  void start_video_capture()
   {
-    cam_.start_capturing();
-    return true;
+    if (srv_requests_ == 0)
+      cam_.start_capturing();
+
+    srv_requests_++;
   }
 
-
-  bool service_stop_cap( std_srvs::Empty::Request  &req, std_srvs::Empty::Response &res )
+  void stop_video_capture()
   {
-    cam_.stop_capturing();
-    return true;
+    srv_requests_--;
+    if (srv_requests_ <= 0)
+      cam_.stop_capturing();
   }
 
   UsbCamNode() :
-      node_("~")
+      node_("~"),
+      srv_requests_( 0 )
   {
-    // advertise the main image topic
-    image_transport::ImageTransport it(node_);
-    image_pub_ = it.advertiseCamera("image_raw", 1);
-
     // grab the parameters
     node_.param("video_device", video_device_name_, std::string("/dev/video0"));
     node_.param("brightness", brightness_, -1); //0-255, -1 "leave alone"
@@ -118,10 +112,6 @@ public:
     node_.param("camera_info_url", camera_info_url_, std::string(""));
     cinfo_.reset(new camera_info_manager::CameraInfoManager(node_, camera_name_, camera_info_url_));
 
-    // create Services
-    service_start_ = node_.advertiseService("start_capture", &UsbCamNode::service_start_cap, this);
-    service_stop_ = node_.advertiseService("stop_capture", &UsbCamNode::service_stop_cap, this);
-
     // check for default camera info
     if (!cinfo_->isCalibrated())
     {
@@ -132,7 +122,6 @@ public:
       camera_info.height = image_height_;
       cinfo_->setCameraInfo(camera_info);
     }
-
 
     ROS_INFO("Starting '%s' (%s) at %dx%d via %s (%s) at %i FPS", camera_name_.c_str(), video_device_name_.c_str(),
         image_width_, image_height_, io_method_name_.c_str(), pixel_format_name_.c_str(), framerate_);
@@ -155,8 +144,8 @@ public:
       return;
     }
 
-    // start the camera
-    cam_.start(video_device_name_.c_str(), io_method, pixel_format, image_width_,
+    // init the camera
+    cam_.init(video_device_name_.c_str(), io_method, pixel_format, image_width_,
 		     image_height_, framerate_);
 
     // set camera parameters
@@ -219,11 +208,20 @@ public:
         cam_.set_v4l_parameter("focus_absolute", focus_);
       }
     }
+
+    // advertise the main image topic
+    image_transport::ImageTransport it(node_);
+    //image_pub_ = it.advertiseCamera("image_raw", 1);
+
+    image_pub_ = it.advertiseCamera( "image_raw", 1,
+      boost::bind( &UsbCamNode::start_video_capture, this ),
+      boost::bind( &UsbCamNode::stop_video_capture, this) );
   }
 
   virtual ~UsbCamNode()
   {
-    cam_.shutdown();
+    srv_requests_ = 0;
+    cam_.fini();
   }
 
   bool take_and_send_image()
@@ -257,10 +255,8 @@ public:
     return true;
   }
 
-
-
-
-
+private:
+  int srv_requests_;
 
 };
 

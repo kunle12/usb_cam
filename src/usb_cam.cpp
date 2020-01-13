@@ -1002,7 +1002,7 @@ void UsbCam::open_device(void)
   }
 }
 
-void UsbCam::start(const std::string& dev, io_method io_method,
+void UsbCam::init(const std::string& dev, io_method io_method,
 		   pixel_format pixel_format, int image_width, int image_height,
 		   int framerate)
 {
@@ -1042,7 +1042,6 @@ void UsbCam::start(const std::string& dev, io_method io_method,
 
   open_device();
   init_device(image_width, image_height, framerate);
-  start_capturing();
 
   image_ = (camera_image_t *)calloc(1, sizeof(camera_image_t));
 
@@ -1056,7 +1055,7 @@ void UsbCam::start(const std::string& dev, io_method io_method,
   memset(image_->image, 0, image_->image_size * sizeof(char));
 }
 
-void UsbCam::shutdown(void)
+void UsbCam::fini(void)
 {
   stop_capturing();
   uninit_device();

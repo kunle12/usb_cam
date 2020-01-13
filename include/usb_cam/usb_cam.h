@@ -74,11 +74,11 @@ class UsbCam {
   UsbCam();
   ~UsbCam();
 
-  // start camera
-  void start(const std::string& dev, io_method io, pixel_format pf,
+  // initialise camera
+  void init(const std::string& dev, io_method io, pixel_format pf,
 		    int image_width, int image_height, int framerate);
-  // shutdown camera
-  void shutdown(void);
+  // finalise camera
+  void fini(void);
 
   // grabs a new image from the camera
   void grab_image(sensor_msgs::Image* image);
