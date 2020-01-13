@@ -221,7 +221,6 @@ public:
   virtual ~UsbCamNode()
   {
     srv_requests_ = 0;
-    cam_.fini();
   }
 
   bool take_and_send_image()
@@ -257,7 +256,6 @@ public:
 
 private:
   int srv_requests_;
-
 };
 
 }
